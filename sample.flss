@@ -1,0 +1,23 @@
+#imp std::io
+#imp std::str
+
+fn simple_d20_roller() {
+    std::io::show("Roll the dice (d20)")
+    std::io::show("Press Enter")
+    let _ = std::io::read_line()
+
+    let result = 1 + int(std::random() * 20)
+    std::io::show(`Result: ${result}`)
+
+    if result == 20 {
+        std::io::show("Critical Success!")
+    } else {
+        if result == 1 {
+            std::io::show("Critical Fail!")
+        }
+    }
+
+    return result
+}
+
+simple_d20_roller()

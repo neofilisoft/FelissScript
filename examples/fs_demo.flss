@@ -1,0 +1,5 @@
+write_file("demo.txt", "feliss sdk")
+let content = read_file("demo.txt")
+show content
+show exists("demo.txt")
+show ls(".")

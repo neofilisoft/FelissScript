@@ -1,0 +1,7 @@
+fn square(x: int) {
+    return x * x
+}
+
+fn double(x: int) {
+    return x * 2
+}

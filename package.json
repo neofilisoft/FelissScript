@@ -1,0 +1,14 @@
+{
+  "name": "felissscript-sdk",
+  "version": "1.0.0-mvp",
+  "private": true,
+  "description": "Local FelissScript SDK and CLI built from the folder spec/playground files.",
+  "type": "commonjs",
+  "bin": {
+    "flss": "./bin/flss.js"
+  },
+  "scripts": {
+    "run:hello": "node ./bin/flss.js run ./examples/hello.flss",
+    "check:hello": "node ./bin/flss.js check ./examples/hello.flss"
+  }
+}

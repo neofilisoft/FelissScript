@@ -1,0 +1,21 @@
+#imp "modules/math_utils.flss"
+
+class Person {
+    name: str = ""
+    age: int = 0
+
+    fn init(self, name: str, age: int) {
+        self.name = name
+        self.age = age
+    }
+}
+
+fn describe(p: Person) {
+    return `${p.name} (${p.age})`
+}
+
+let user = new Person("Feliss", 7)
+show "FelissScript SDK is alive"
+show describe(user)
+show `square(6) = ${square(6)}`
+show `double(21) = ${double(21)}`
