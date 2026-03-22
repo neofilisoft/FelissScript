@@ -1,0 +1,152 @@
+// fethon_generator.flss
+#imp std::str
+#include "fethon.hfs"
+
+fn generate_felisscript(ast: dict) -> str {
+    let lines = []
+    for node in ast["body"] {
+        lines.push(generate_statement(node, 0))
+    }
+    return lines.join("\n")
+}
+
+fn generate_statement(node: dict, indent: int) -> str {
+    let sp = "  ".repeat(indent)
+
+    match node["type"] {
+        "Print" => {
+            let val = generate_expression(node["value"])
+            return sp + "show " + val
+        }
+        "Input" => {
+            let prompt = node["prompt"]
+            if prompt != null && prompt["type"] != "None" {
+                let prompt_str = generate_expression(prompt)
+                return sp + "let _tmp = " + prompt_str + "\n" +
+                       sp + "show _tmp, end=\"\"\n" +
+                       sp + "let result = read_line()"
+            } else {
+                return sp + "let result = read_line()"
+            }
+        }
+        "Function" => {
+            let name = node["name"]
+            let params = node["params"]
+            let params_str = params.join(", ")
+            let body_lines = []
+            for stmt in node["body"] {
+                body_lines.push(generate_statement(stmt, indent + 1))
+            }
+            let body = body_lines.join("\n")
+            return sp + "fn " + name + "(" + params_str + ") {\n" + body + "\n" + sp + "}"
+        }
+        "If" => {
+            let cond = generate_expression(node["cond"])
+            let body_lines = []
+            for stmt in node["body"] {
+                body_lines.push(generate_statement(stmt, indent + 1))
+            }
+            let body = body_lines.join("\n")
+            return sp + "if " + cond + " {\n" + body + "\n" + sp + "}"
+        }
+        "Elif" => {
+            let cond = generate_expression(node["cond"])
+            let body_lines = []
+            for stmt in node["body"] {
+                body_lines.push(generate_statement(stmt, indent + 1))
+            }
+            let body = body_lines.join("\n")
+            return sp + "else if " + cond + " {\n" + body + "\n" + sp + "}"
+        }
+        "Else" => {
+            let body_lines = []
+            for stmt in node["body"] {
+                body_lines.push(generate_statement(stmt, indent + 1))
+            }
+            let body = body_lines.join("\n")
+            return sp + "else {\n" + body + "\n" + sp + "}"
+        }
+        "For" => {
+            let var_name = node["var"]
+            let iter_expr = generate_expression(node["iter"])
+            let body_lines = []
+            for stmt in node["body"] {
+                body_lines.push(generate_statement(stmt, indent + 1))
+            }
+            let body = body_lines.join("\n")
+            return sp + "for " + var_name + " in " + iter_expr + " {\n" + body + "\n" + sp + "}"
+        }
+        "While" => {
+            let cond = generate_expression(node["cond"])
+            let body_lines = []
+            for stmt in node["body"] {
+                body_lines.push(generate_statement(stmt, indent + 1))
+            }
+            let body = body_lines.join("\n")
+            return sp + "while " + cond + " {\n" + body + "\n" + sp + "}"
+        }
+        "Return" => {
+            let val = generate_expression(node["value"])
+            return sp + "return " + val
+        }
+        "Assign" => {
+            let target = generate_expression(node["target"])
+            let value = generate_expression(node["value"])
+            return sp + "let " + target + " = " + value
+        }
+        "Expr" => {
+            let expr = generate_expression(node["value"])
+            return sp + expr
+        }
+        _ => {
+            return sp + "// Unsupported: " + node["type"]
+        }
+    }
+}
+
+fn generate_expression(node: dict) -> str {
+    match node["type"] {
+        "Template" => {
+            return "`" + node["value"] + "`"
+        }
+        "String" => {
+            return "\"" + node["value"].replace("\"", "\\\"") + "\""
+        }
+        "Number" => {
+            return node["value"]
+        }
+        "Bool" => {
+            return if node["value"] { "true" } else { "false" }
+        }
+        "None" => {
+            return "null"
+        }
+        "Variable" => {
+            return node["name"]
+        }
+        "List" => {
+            let items = node["items"].map(generate_expression)
+            return "[" + items.join(", ") + "]"
+        }
+        "Dict" => {
+            let items = []
+            for item in node["items"] {
+                let key = generate_expression(item["key"])
+                let val = generate_expression(item["value"])
+                items.push(key + ": " + val)
+            }
+            return "{" + items.join(", ") + "}"
+        }
+        "Call" => {
+            let func = generate_expression(node["func"])
+            let args = node["args"].map(generate_expression)
+            return func + "(" + args.join(", ") + ")"
+        }
+        "Raw" => {
+            return node["value"]
+        }
+        _ => {
+            return "// unknown expr"
+        }
+    }
+}

@@ -1,0 +1,27 @@
+// fethon.flss
+#imp std::io
+#imp std::fs
+#include "fethon.hfs"
+#include "fethon_parser.flss"
+#include "fethon_generator.flss"
+
+fn transpile(source: str) -> str {
+    let ast = parse_python(source)
+    return generate_felisscript(ast)
+}
+
+fn main() {
+    let args = std::io::args()
+    if args.len() < 2 {
+        std::io::show("Usage: fethon <input.py> [output.flss]")
+        return
+    }
+
+    let input_file = args[1]
+    let output_file = if args.len() >= 3 { args[2] } else { "output.flss" }
+
+    let source = std::fs::read(input_file)
+    let flss_code = transpile(source)
+    std::fs::write(output_file, flss_code)
+    std::io::show(`Transpiled Successfully ${input_file} -> ${output_file}`)
+}

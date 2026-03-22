@@ -1,0 +1,12 @@
+[package]
+name = "fethon"
+version = "1.0.0"
+author = "FelissScript Community"
+description = "A transpiler from Python to FelissScript"
+license = "MIT"
+
+[dependencies]
+# ใช้ stdlib เท่านั้น
+
+[build]
+target = "native"

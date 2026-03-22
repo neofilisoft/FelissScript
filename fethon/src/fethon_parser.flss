@@ -1,0 +1,271 @@
+// fethon_parser.flss
+#imp std::str
+#include "fethon.hfs"
+
+fn indent_level(line: str) -> int {
+    let spaces = 0
+    for ch in line.chars() {
+        if ch == ' ' {
+            spaces += 1
+        } else {
+            break
+        }
+    }
+    return spaces / 2
+}
+
+fn is_comment(line: str) -> bool {
+    let trimmed = std::str::trim(line)
+    return trimmed.starts_with("#")
+}
+
+fn trim_docstring(doc: str) -> str {
+    return std::str::trim(doc)
+}
+
+fn parse_python(source: str) -> dict {
+    let lines = source.split("\n")
+    let ast = {
+        "type": "Module",
+        "body": []
+    }
+    let current_indent = 0
+    let current_block = ast["body"]
+    let block_stack = [current_block]
+
+    for line in lines {
+        if is_comment(line) {
+            continue
+        }
+
+        let stripped = std::str::trim(line)
+        if stripped == "" {
+            continue
+        }
+
+        let indent = indent_level(line)
+        while indent < current_indent {
+            block_stack.pop()
+            current_block = block_stack[-1]
+            current_indent -= 1
+        }
+
+        if indent > current_indent {
+            let new_block = []
+            current_block.push({
+                "type": "Block",
+                "body": new_block
+            })
+            block_stack.push(new_block)
+            current_block = new_block
+            current_indent = indent
+        }
+
+        let stmt = parse_statement(stripped)
+        current_block.push(stmt)
+    }
+
+    return ast
+}
+
+fn parse_statement(line: str) -> dict {
+    if line.starts_with("print(") && line.ends_with(")") {
+        let inner = line.slice(6, -1)
+        return {
+            "type": "Print",
+            "value": parse_expression(inner)
+        }
+    } else if line.starts_with("input(") && line.ends_with(")") {
+        let inner = line.slice(6, -1)
+        return {
+            "type": "Input",
+            "prompt": parse_expression(inner)
+        }
+    } else if line.starts_with("def ") {
+        let rest = line.slice(4)
+        let parts = rest.split("(")
+        let name = std::str::trim(parts[0])
+        let params_part = parts[1].split(")")[0]
+        let params = split_comma(params_part).map(std::str::trim)
+        return {
+            "type": "Function",
+            "name": name,
+            "params": params,
+            "body": []
+        }
+    } else if line.starts_with("if ") {
+        let cond = line.slice(3, -1)
+        return {
+            "type": "If",
+            "cond": parse_expression(cond),
+            "body": []
+        }
+    } else if line.starts_with("elif ") {
+        let cond = line.slice(5, -1)
+        return {
+            "type": "Elif",
+            "cond": parse_expression(cond),
+            "body": []
+        }
+    } else if line == "else:" {
+        return {
+            "type": "Else",
+            "body": []
+        }
+    } else if line.starts_with("for ") {
+        let rest = line.slice(4, -1)
+        let parts = rest.split(" in ")
+        let var_name = std::str::trim(parts[0])
+        let iter_expr = std::str::trim(parts[1])
+        return {
+            "type": "For",
+            "var": var_name,
+            "iter": parse_expression(iter_expr),
+            "body": []
+        }
+    } else if line.starts_with("while ") {
+        let cond = line.slice(6, -1)
+        return {
+            "type": "While",
+            "cond": parse_expression(cond),
+            "body": []
+        }
+    } else if line.starts_with("return ") {
+        let value = line.slice(7)
+        return {
+            "type": "Return",
+            "value": parse_expression(value)
+        }
+    } else {
+        if line.contains("=") {
+            let eq_idx = line.find("=")
+            let lhs = std::str::trim(line.slice(0, eq_idx))
+            let rhs = std::str::trim(line.slice(eq_idx + 1))
+            return {
+                "type": "Assign",
+                "target": parse_expression(lhs),
+                "value": parse_expression(rhs)
+            }
+        }
+
+        return {
+            "type": "Expr",
+            "value": parse_expression(line)
+        }
+    }
+}
+
+fn parse_expression(expr: str) -> dict {
+    let expr = std::str::trim(expr)
+
+    if expr.starts_with("f\"") && expr.ends_with("\"") {
+        let inner = expr.slice(2, -1)
+        let transformed = inner.replace("{", "${")
+        return {
+            "type": "Template",
+            "value": transformed
+        }
+    }
+
+    if (expr.starts_with("\"") && expr.ends_with("\"")) || (expr.starts_with("'") && expr.ends_with("'")) {
+        return {
+            "type": "String",
+            "value": expr.slice(1, -1)
+        }
+    }
+
+    if expr.matches(r"^\d+(\.\d+)?$") {
+        return {
+            "type": "Number",
+            "value": expr
+        }
+    }
+
+    if expr == "True" {
+        return { "type": "Bool", "value": true }
+    }
+    if expr == "False" {
+        return { "type": "Bool", "value": false }
+    }
+    if expr == "None" {
+        return { "type": "None" }
+    }
+
+    if expr.matches(r"^[a-zA-Z_][a-zA-Z0-9_]*$") {
+        return {
+            "type": "Variable",
+            "name": expr
+        }
+    }
+
+    if expr.starts_with("[") && expr.ends_with("]") {
+        let inner = expr.slice(1, -1)
+        let items = split_comma(inner)
+        return {
+            "type": "List",
+            "items": items.map(parse_expression)
+        }
+    }
+
+    if expr.starts_with("{") && expr.ends_with("}") {
+        let inner = expr.slice(1, -1)
+        let pairs = split_comma(inner)
+        let dict_items = []
+        for pair in pairs {
+            let colon_idx = pair.find(":")
+            let key = pair.slice(0, colon_idx)
+            let val = pair.slice(colon_idx + 1)
+            dict_items.push({
+                "key": parse_expression(key),
+                "value": parse_expression(val)
+            })
+        }
+        return {
+            "type": "Dict",
+            "items": dict_items
+        }
+    }
+
+    let open_paren = expr.find("(")
+    if open_paren > 0 && expr.ends_with(")") {
+        let func = expr.slice(0, open_paren)
+        let args_part = expr.slice(open_paren + 1, -1)
+        let args = split_comma(args_part)
+        return {
+            "type": "Call",
+            "func": parse_expression(func),
+            "args": args.map(parse_expression)
+        }
+    }
+
+    return {
+        "type": "Raw",
+        "value": expr
+    }
+}
+
+fn split_comma(s: str) -> List<str> {
+    let result = []
+    let current = ""
+    let depth = 0
+
+    for ch in s.chars() {
+        if ch == ',' && depth == 0 {
+            result.push(current)
+            current = ""
+        } else {
+            if ch == '(' || ch == '[' || ch == '{' {
+                depth += 1
+            } else if ch == ')' || ch == ']' || ch == '}' {
+                depth -= 1
+            }
+            current += ch
+        }
+    }
+
+    if current != "" {
+        result.push(current)
+    }
+
+    return result.map(std::str::trim)
+}

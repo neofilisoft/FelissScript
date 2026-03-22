@@ -1,0 +1,21 @@
+// fethon.hfs
+// Header สำหรับโมดูล Fethon
+
+// Parser
+fn parse_python(source: str) -> dict
+fn parse_expression(expr: str) -> dict
+fn parse_statement(line: str) -> dict
+fn split_comma(s: str) -> List<str>
+
+// Generator
+fn generate_felisscript(ast: dict) -> str
+fn generate_expression(node: dict) -> str
+fn generate_statement(node: dict, indent: int) -> str
+
+// Utilities
+fn is_comment(line: str) -> bool
+fn indent_level(line: str) -> int
+fn trim_docstring(doc: str) -> str
+
+// Transpiler entry
+fn transpile(source: str) -> str
